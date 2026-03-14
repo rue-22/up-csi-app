@@ -1,6 +1,7 @@
 import { type Handle } from '@sveltejs/kit';
 import { createServerClient } from '@supabase/ssr';
 import { sequence } from '@sveltejs/kit/hooks';
+import type { AppRole } from '$lib/server/auth';
 
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 
@@ -48,20 +49,23 @@ const supabase: Handle = ({ event, resolve }) => {
     });
 };
 
-// const authGuard: Handle = async ({ event, resolve }) => {
-//   const { session, user } = await event.locals.safeGetSession()
-//   event.locals.session = session
-//   event.locals.user = user
-//
-//   if (!event.locals.session && event.url.pathname.startsWith('/private')) {
-//     redirect(303, '/login')
-//   }
-//
-//   if (event.locals.session && event.url.pathname === '/login') {
-//     redirect(303, '/private')
-//   }
-//
-//   return resolve(event)
-// }
+const authGuard: Handle = async ({ event, resolve }) => {
+  const { session, user } = await event.locals.safeGetSession()
+  event.locals.session = session
+  event.locals.user = user
+  event.locals.userRole = null;
 
-export const handle: Handle = sequence(supabase);
+  if (user) {
+    const { data: profile } = await event.locals.supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+    event.locals.userRole = (profile?.role as AppRole) ?? 'applicant';
+    console.log('userRole:', event.locals.userRole);
+}
+
+  return resolve(event)
+}
+
+export const handle: Handle = sequence(supabase, authGuard);

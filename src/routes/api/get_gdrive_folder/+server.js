@@ -1,9 +1,8 @@
 import { PUBLIC_GOOGLE_PRIVATE_KEY, PUBLIC_GOOGLE_SERVICE_EMAIL } from '$env/static/public';
 import { gdrive_root_folder } from '$lib/shared';
 import { google } from 'googleapis';
-import { supabase } from '$lib/supabaseClient';
 
-export async function POST({ request }) {
+export async function POST({ request, locals }) {
     console.log('Received POST request at /api/get_gdrive_folder');
 
     // Add debugging logs to verify environment variables
@@ -13,8 +12,16 @@ export async function POST({ request }) {
     });
 
     try {
-        const { uuid, username } = await request.json();
-
+        const { user } = await locals.safeGetSession();
+        if (!user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+        const uuid = user.id;
+        const { username } = await request.json();
+        const supabase = locals.supabase;
         // Ensure uuid is not empty
         if (uuid === '' || uuid === null) {
             console.error('Validation Error: $uuid is empty: ');

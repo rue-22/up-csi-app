@@ -1,9 +1,9 @@
 import { PUBLIC_GOOGLE_PRIVATE_KEY, PUBLIC_GOOGLE_SERVICE_EMAIL } from '$env/static/public';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
-import { supabase } from '../../../lib/supabaseClient';
 
-export async function POST({ request }) {
+/** @type {import('./$types').RequestHandler} */
+export async function POST({ request, locals }) {
     console.log('Received POST request at /api/upload');
 
     // Add debugging logs to verify environment variables
@@ -13,8 +13,16 @@ export async function POST({ request }) {
     });
 
     try {
+        const { user } = await locals.safeGetSession();
+        if (!user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+        const uuid = user.id;
         const formData = await request.formData();
-        const uuid = formData.get('uuid');
+        const supabase = locals.supabase;
         const username = formData.get('username');
         const gdrive_folder_id = formData.get('gdrive_folder_id');
         const member_id = formData.get('member_id');
