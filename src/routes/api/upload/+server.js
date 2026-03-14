@@ -22,7 +22,7 @@ export async function POST({ request, locals }) {
         }
         const uuid = user.id;
         const formData = await request.formData();
-        const supabase = locals.supabase;
+        const { supabase } = locals;
         const username = formData.get('username');
         const gdrive_folder_id = formData.get('gdrive_folder_id');
         const member_id = formData.get('member_id');

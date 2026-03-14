@@ -2,6 +2,7 @@ import { PUBLIC_GOOGLE_PRIVATE_KEY, PUBLIC_GOOGLE_SERVICE_EMAIL } from '$env/sta
 import { gdrive_root_folder } from '$lib/shared';
 import { google } from 'googleapis';
 
+/** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
     console.log('Received POST request at /api/get_gdrive_folder');
 
@@ -21,7 +22,7 @@ export async function POST({ request, locals }) {
         }
         const uuid = user.id;
         const { username } = await request.json();
-        const supabase = locals.supabase;
+        const { supabase } = locals;
         // Ensure uuid is not empty
         if (uuid === '' || uuid === null) {
             console.error('Validation Error: $uuid is empty: ');
