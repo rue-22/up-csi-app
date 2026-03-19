@@ -50,24 +50,20 @@ const supabase: Handle = ({ event, resolve }) => {
 };
 
 const authGuard: Handle = async ({ event, resolve }) => {
-  const { locals } = event;
-  const { session, user } = await locals.safeGetSession()
-  let userRole: AppRole | null = null;
+    const { locals } = event;
+    const { session, user } = await locals.safeGetSession();
+    let userRole: AppRole | null = null;
 
-  if (user) {
-    const { data: profile } = await locals.supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-    userRole = (profile?.role as AppRole) ?? 'applicant';
-  }
+    if (user) {
+        const { data: profile } = await locals.supabase.from('profiles').select('role').eq('id', user.id).single();
+        userRole = (profile?.role as AppRole) ?? 'applicant';
+    }
 
-  locals.session = session
-  locals.user = user
-  locals.userRole = userRole;
+    locals.session = session;
+    locals.user = user;
+    locals.userRole = userRole;
 
-  return resolve(event)
-}
+    return resolve(event);
+};
 
 export const handle: Handle = sequence(supabase, authGuard);
