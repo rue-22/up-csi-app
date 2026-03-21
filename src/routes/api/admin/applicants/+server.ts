@@ -1,6 +1,6 @@
 import { type RequestEvent, json } from '@sveltejs/kit';
-import { requireRole } from '$lib/server/auth';
 import { getSupabaseAdmin } from '$lib/server/supabaseAdmin';
+import { requireRole } from '$lib/server/auth';
 
 /**
  * List all applicant profiles
