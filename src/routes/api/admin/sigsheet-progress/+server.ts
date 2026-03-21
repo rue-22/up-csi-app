@@ -1,9 +1,11 @@
 import { type RequestEvent, json } from '@sveltejs/kit';
 import { requireRole } from '$lib/server/auth';
-import { supabaseAdmin } from '$lib/server/supabaseAdmin';
+import { getSupabaseAdmin } from '$lib/server/supabaseAdmin';
 
 export async function GET(event: RequestEvent) {
     requireRole(event, 'admin');
+
+    const supabaseAdmin = getSupabaseAdmin();
 
     // Get total member count for progress calculation
     const { count: totalMembers } = await supabaseAdmin.from('members').select('*', { count: 'exact', head: true });
