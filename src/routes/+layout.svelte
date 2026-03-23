@@ -93,7 +93,7 @@
                 class="fixed top-0 left-0 z-50 h-screen w-64 transition-transform duration-300 ease-in-out
                     {isNavBarOpen ? 'translate-x-0' : '-translate-x-full'}"
             >
-                <NavBar user={data.user} bind:isNavBarOpen />
+                <NavBar user={data.user} bind:isNavBarOpen userRole={data.userRole} />
             </div>
         {/if}
 

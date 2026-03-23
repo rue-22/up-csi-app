@@ -1,5 +1,5 @@
+import { type Handle, redirect } from '@sveltejs/kit';
 import type { AppRole } from '$lib/server/auth';
-import { type Handle } from '@sveltejs/kit';
 import { createServerClient } from '@supabase/ssr';
 import { sequence } from '@sveltejs/kit/hooks';
 
@@ -62,6 +62,14 @@ const authGuard: Handle = async ({ event, resolve }) => {
     locals.session = session;
     locals.user = user;
     locals.userRole = userRole;
+
+    const { pathname } = event.url;
+    const isPublicRoute = pathname === '/login' || pathname.startsWith('/login/');
+    const isApiRoute = pathname.startsWith('/api/');
+
+    if (!session && !isPublicRoute && !isApiRoute) {
+        redirect(303, '/login');
+    }
 
     return resolve(event);
 };
