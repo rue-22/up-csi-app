@@ -15,7 +15,9 @@
         "lint:html": "linthtml src/**/*.html",
         "lint:css": "stylelint src/**/*.css",
         "lint:js": "eslint",
-        "lint:svelte": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+        "lint:svelte": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+        "test": "vitest",
+        "test:run": "vitest run"
     },
     "dependencies": {
         "@googleapis/drive": "^12.0.0",
@@ -50,7 +52,8 @@
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.31.1",
         "typescript-svelte-plugin": "^0.3.46",
-        "vite": "^6.3.3"
+        "vite": "^6.3.3",
+        "vitest": "^4.1.1"
     },
     "pnpm": {
         "onlyBuiltDependencies": [
