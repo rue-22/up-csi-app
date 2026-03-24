@@ -33,20 +33,21 @@ export const load: PageServerLoad = async () => {
     const totalMembers = sigsheetRes.total_members ?? 0;
 
     // Sigsheet pie chart: Not started / In Progress / Met quota
+    // Filter to only applicant profiles so non-applicants don't inflate counts
+    const applicantIds = new Set(applicantsRes.applicants.map(a => a.id));
+    const applicantProgress = sigsheetRes.progress.filter(entry => applicantIds.has(entry.profile.id));
     let sigMetQuota = 0;
     let sigInProgress = 0;
-    for (const entry of sigsheetRes.progress) {
+    for (const entry of applicantProgress) {
         if (totalMembers > 0 && entry.count >= totalMembers) {
             sigMetQuota++;
         } else {
             sigInProgress++;
         }
     }
-    const sigNotStarted = totalApplicants - sigsheetRes.progress.length;
+    const sigNotStarted = totalApplicants - applicantProgress.length;
 
     // Quiz pie chart: Not started / In Progress / Completed
-    // Filter to only applicant user IDs so admins/other roles don't inflate counts
-    const applicantIds = new Set(applicantsRes.applicants.map(a => a.id));
     const submittedUserIds = new Set(quizRes.results.filter(r => applicantIds.has(r.user_id)).map(r => r.user_id));
     const answerUserIds = new Set(
         ((quizAnswersRes.data as { user_id: string }[] | null) ?? [])
