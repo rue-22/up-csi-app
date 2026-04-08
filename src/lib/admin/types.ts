@@ -61,3 +61,12 @@ export interface GradeInput {
     max_score: number;
     remarks?: string;
 }
+
+/** Row shape for the constiquiz respondent list page (P02-001). */
+export interface QuizRespondent {
+    user_id: string;
+    full_name: string;
+    username: string;
+    status: 'Not Started' | 'In Progress' | 'Completed';
+    current_score: number;
+}

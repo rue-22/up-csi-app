@@ -1,6 +1,7 @@
 import type {
     ApplicantProfile,
     QuizAnswerDetail,
+    QuizRespondent,
     QuizResultDetail,
     QuizResultSummary,
     SigsheetProgressSummary,
@@ -132,6 +133,72 @@ export async function fetchSigsheetProgress(
         total_members: totalMembers ?? null,
         progress: Object.values(byApplicant),
     };
+}
+
+export async function fetchQuizRespondents(
+    supabase: SupabaseClient,
+): Promise<{ respondents: QuizRespondent[]; max_score: number }> {
+    const [applicantsRes, submissionsRes, answersRes, questionsRes] = await Promise.all([
+        supabase.from('profiles').select('id, username, full_name').eq('role', 'applicant'),
+        supabase.from('constiquiz-submissions').select('user_id'),
+        supabase.from('constiquiz-answers').select('user_id, points'),
+        supabase.from('constiquiz-questions').select('point_value'),
+    ]);
+
+    if (applicantsRes.error) {
+        throw new Error(applicantsRes.error.message);
+    }
+    if (submissionsRes.error) {
+        throw new Error(submissionsRes.error.message);
+    }
+    if (answersRes.error) {
+        throw new Error(answersRes.error.message);
+    }
+    if (questionsRes.error) {
+        throw new Error(questionsRes.error.message);
+    }
+
+    const submittedUserIds = new Set<string>();
+    for (const row of (submissionsRes.data as Record<string, unknown>[] | null) ?? []) {
+        const uid = row.user_id as string | null;
+        if (uid) {
+            submittedUserIds.add(uid);
+        }
+    }
+
+    const scoreByUser: Record<string, number> = {};
+    const hasAnswerByUser = new Set<string>();
+    for (const row of (answersRes.data as Record<string, unknown>[] | null) ?? []) {
+        const uid = row.user_id as string | null;
+        if (!uid) continue;
+        scoreByUser[uid] = (scoreByUser[uid] ?? 0) + ((row.points as number | null) ?? 0);
+        hasAnswerByUser.add(uid);
+    }
+
+    const max_score = ((questionsRes.data as Record<string, unknown>[] | null) ?? []).reduce(
+        (sum, q) => sum + ((q.point_value as number | null) ?? 0),
+        0,
+    );
+
+    const respondents: QuizRespondent[] = ((applicantsRes.data as Record<string, unknown>[] | null) ?? []).map(p => {
+        const uid = p.id as string;
+        let status: QuizRespondent['status'] = 'Not Started';
+        if (submittedUserIds.has(uid)) {
+            status = 'Completed';
+        } else if (hasAnswerByUser.has(uid)) {
+            status = 'In Progress';
+        }
+
+        return {
+            user_id: uid,
+            full_name: (p.full_name as string | null) ?? '',
+            username: (p.username as string | null) ?? '',
+            status,
+            current_score: scoreByUser[uid] ?? 0,
+        };
+    });
+
+    return { respondents, max_score };
 }
 
 export async function fetchSigsheetDetail(
