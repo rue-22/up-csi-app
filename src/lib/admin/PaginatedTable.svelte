@@ -1,11 +1,14 @@
 <script lang="ts">
     import Pagination from './Pagination.svelte';
     import type { Snippet } from 'svelte';
+    import { fade } from 'svelte/transition';
+    import { flip } from 'svelte/animate';
 
     interface Column {
         key: string;
         header: string;
         searchable?: boolean;
+        sortable?: boolean;
     }
 
     interface CellContext {
@@ -18,22 +21,20 @@
     let {
         data,
         columns,
+        rowKey,
         searchTerm = '',
         filterKey = '',
         filterValue = 'all',
-        sortKey = '',
-        sortDirection = 'asc',
         pageSize = 20,
         onRowClick,
         cell,
     }: {
         data: Record<string, unknown>[];
         columns: Column[];
+        rowKey: string;
         searchTerm?: string;
         filterKey?: string;
         filterValue?: string;
-        sortKey?: string;
-        sortDirection?: 'asc' | 'desc';
         pageSize?: number;
         onRowClick?: (row: Record<string, unknown>) => void;
         cell?: Snippet<[CellContext]>;
@@ -41,6 +42,25 @@
     /* eslint-enable prefer-const */
 
     let currentPage = $state(1);
+    let sortKey = $state('');
+    let sortDirection = $state<'asc' | 'desc'>('asc');
+
+    function handleSort(key: string) {
+        if (sortKey !== key) {
+            sortKey = key;
+            sortDirection = 'asc';
+        } else if (sortDirection === 'asc') {
+            sortDirection = 'desc';
+        } else {
+            sortKey = '';
+            sortDirection = 'asc';
+        }
+    }
+
+    function ariaSortFor(key: string): 'ascending' | 'descending' | 'none' {
+        if (sortKey !== key) return 'none';
+        return sortDirection === 'asc' ? 'ascending' : 'descending';
+    }
 
     const filteredBySearch = $derived.by(() => {
         if (!searchTerm) return data;
@@ -96,18 +116,38 @@
             <thead>
                 <tr class="border-b border-[#2A2A2D]">
                     {#each columns as col (col.key)}
-                        <th
-                            class="text-csi-neutral-400 px-6 py-4 text-left text-xs font-medium tracking-wider uppercase"
-                        >
-                            {col.header}
+                        <th aria-sort={ariaSortFor(col.key)}>
+                            {#if col.sortable}
+                                <button
+                                    type="button"
+                                    onclick={() => handleSort(col.key)}
+                                    class="text-csi-neutral-400 hover:text-csi-white flex w-full items-center gap-1.5 px-6 py-4 text-left text-xs font-medium tracking-wider uppercase transition-colors duration-150"
+                                >
+                                    {col.header}
+                                    {#if sortKey === col.key}
+                                        <span class="text-csi-blue">
+                                            {sortDirection === 'asc' ? '\u2191' : '\u2193'}
+                                        </span>
+                                    {/if}
+                                </button>
+                            {:else}
+                                <div
+                                    class="text-csi-neutral-400 px-6 py-4 text-left text-xs font-medium tracking-wider uppercase"
+                                >
+                                    {col.header}
+                                </div>
+                            {/if}
                         </th>
                     {/each}
                 </tr>
             </thead>
             <tbody>
-                {#each paginatedData as row, i (i)}
+                {#each paginatedData as row (row[rowKey] as string | number)}
                     <tr
-                        class="border-b border-[#2A2A2D] transition-colors hover:bg-[#2A2A2D]
+                        animate:flip={{ duration: 220 }}
+                        in:fade={{ duration: 180 }}
+                        out:fade={{ duration: 120 }}
+                        class="border-b border-[#2A2A2D] transition-colors duration-150 last:border-b-0 hover:bg-[#2A2A2D]
                             {onRowClick ? 'cursor-pointer' : ''}"
                         onclick={() => onRowClick?.(row)}
                     >
@@ -125,7 +165,7 @@
 
                 {#if paginatedData.length === 0}
                     <tr>
-                        <td colspan={columns.length} class="text-csi-neutral-400 px-6 py-8 text-center text-sm">
+                        <td colspan={columns.length} class="text-csi-neutral-400 px-6 py-12 text-center text-sm">
                             No results found
                         </td>
                     </tr>
