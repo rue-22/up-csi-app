@@ -3,12 +3,13 @@
     import PaginatedTable from './PaginatedTable.svelte';
     import SearchInput from './SearchInput.svelte';
     import type { Snippet } from 'svelte';
-    import SortDropdown from './SortDropdown.svelte';
+    import { fly } from 'svelte/transition';
 
     interface Column {
         key: string;
         header: string;
         searchable?: boolean;
+        sortable?: boolean;
     }
 
     interface CellContext {
@@ -22,6 +23,7 @@
         title,
         data,
         columns,
+        rowKey,
         filterKey = '',
         filterOptions = ['all', 'Not Started', 'In Progress', 'Completed'],
         searchPlaceholder = 'Search applicant',
@@ -31,6 +33,7 @@
         title: string;
         data: Record<string, unknown>[];
         columns: Column[];
+        rowKey: string;
         filterKey?: string;
         filterOptions?: string[];
         searchPlaceholder?: string;
@@ -41,30 +44,17 @@
 
     let searchTerm = $state('');
     let filterValue = $state('all');
-    let sortKey = $state('');
-    let sortDirection = $state<'asc' | 'desc'>('asc');
 </script>
 
-<div class="flex flex-col gap-6">
-    <h1 class="text-csi-white text-3xl font-bold">{title}</h1>
+<div class="flex w-full flex-col gap-6 px-8 py-12" in:fly={{ y: 12, duration: 280 }}>
+    <h1 class="text-csi-white text-4xl font-bold">{title}</h1>
 
     <div class="flex items-center gap-4">
         <div class="flex-1">
             <SearchInput bind:value={searchTerm} placeholder={searchPlaceholder} />
         </div>
         <FilterDropdown bind:value={filterValue} options={filterOptions} />
-        <SortDropdown bind:sortKey bind:sortDirection {columns} />
     </div>
 
-    <PaginatedTable
-        {data}
-        {columns}
-        {searchTerm}
-        {filterKey}
-        {filterValue}
-        {sortKey}
-        {sortDirection}
-        {onRowClick}
-        {cell}
-    />
+    <PaginatedTable {data} {columns} {rowKey} {searchTerm} {filterKey} {filterValue} {onRowClick} {cell} />
 </div>
