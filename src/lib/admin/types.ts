@@ -66,7 +66,6 @@ export interface GradeInput {
 export interface QuizRespondent {
     user_id: string;
     full_name: string;
-    username: string;
     status: 'Not Started' | 'In Progress' | 'Completed';
     current_score: number;
 }

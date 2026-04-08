@@ -6,10 +6,9 @@
     const { data } = $props();
 
     const columns = [
-        { key: 'full_name', header: 'Applicant Name', searchable: true },
-        { key: 'username', header: 'Username', searchable: true },
-        { key: 'status', header: 'Status' },
-        { key: 'current_score', header: 'Current Score' },
+        { key: 'full_name', header: 'Applicant Name', searchable: true, sortable: true },
+        { key: 'status', header: 'Status', sortable: true },
+        { key: 'current_score', header: 'Current Score', sortable: true },
         { key: 'responses', header: 'Responses' },
     ];
 
@@ -22,6 +21,7 @@
     title="Constitution Quiz Respondents"
     data={data.respondents as unknown as Record<string, unknown>[]}
     {columns}
+    rowKey="user_id"
     filterKey="status"
     onRowClick={goToDetail}
 >

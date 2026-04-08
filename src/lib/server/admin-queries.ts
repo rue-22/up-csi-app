@@ -139,7 +139,7 @@ export async function fetchQuizRespondents(
     supabase: SupabaseClient,
 ): Promise<{ respondents: QuizRespondent[]; max_score: number }> {
     const [applicantsRes, submissionsRes, answersRes, questionsRes] = await Promise.all([
-        supabase.from('profiles').select('id, username, full_name').eq('role', 'applicant'),
+        supabase.from('profiles').select('id, full_name').eq('role', 'applicant'),
         supabase.from('constiquiz-submissions').select('user_id'),
         supabase.from('constiquiz-answers').select('user_id, points'),
         supabase.from('constiquiz-questions').select('point_value'),
@@ -192,7 +192,6 @@ export async function fetchQuizRespondents(
         return {
             user_id: uid,
             full_name: (p.full_name as string | null) ?? '',
-            username: (p.username as string | null) ?? '',
             status,
             current_score: scoreByUser[uid] ?? 0,
         };
