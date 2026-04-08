@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { fly } from 'svelte/transition';
+
     /* eslint-disable prefer-const */
     let {
         value = $bindable('all'),
@@ -36,7 +38,7 @@
     <button
         type="button"
         onclick={() => (open = !open)}
-        class="text-csi-white hover:border-csi-blue flex items-center gap-2 rounded-lg border border-[#5A5A5A] bg-transparent px-4 py-2.5 text-sm transition-colors"
+        class="text-csi-white hover:border-csi-blue flex items-center gap-2 rounded-lg border border-[#5A5A5A] bg-transparent px-4 py-2.5 text-sm transition-colors duration-150"
     >
         Filter
         {#if value !== 'all'}
@@ -45,7 +47,10 @@
     </button>
 
     {#if open}
-        <div class="absolute top-full right-0 z-10 mt-1 min-w-[160px] rounded-lg bg-[#2A2A2D] py-1 shadow-lg">
+        <div
+            class="absolute top-full right-0 z-10 mt-1 min-w-[160px] rounded-lg bg-[#2A2A2D] py-1 shadow-lg"
+            transition:fly={{ y: -4, duration: 140 }}
+        >
             {#each options as option (option)}
                 <button
                     type="button"
