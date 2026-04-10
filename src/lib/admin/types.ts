@@ -69,3 +69,13 @@ export interface QuizRespondent {
     status: 'Not Started' | 'In Progress' | 'Completed';
     current_score: number;
 }
+
+/** Sigsheet respondent with per-committee breakdown for P03-001. */
+export interface SigsheetRespondent {
+    user_id: string;
+    full_name: string;
+    username: string;
+    total_signatures: number;
+    by_committee: Record<string, number>;
+    status: 'Not Started' | 'In Progress' | 'Completed';
+}
