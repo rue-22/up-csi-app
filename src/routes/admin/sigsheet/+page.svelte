@@ -20,7 +20,7 @@
         { key: 'full_name', header: 'Applicant Name', searchable: true, sortable: true },
         { key: 'status', header: 'Status', sortable: true },
         { key: 'total_signatures', header: 'Total', sortable: true },
-        ...COMMITTEES.map(c => ({ key: `by_committee.${c}`, header: c, sortable: true })),
+        ...COMMITTEES.map(c => ({ key: `by_committee.${c}`, header: c })),
     ];
 
     function goToDetail(row: Record<string, unknown>) {
