@@ -11,7 +11,7 @@ import type {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // arbitrary cutoff, change in future depending on m&i
-const CUTOFF = 0.5;
+const COMPLETION_QUOTA_PERCENTAGE = 0.5;
 
 export async function fetchApplicants(supabase: SupabaseClient): Promise<{ applicants: ApplicantProfile[] }> {
     const { data, error } = await supabase
@@ -264,6 +264,7 @@ export async function fetchSigsheetRespondents(
     const applicantsData = (applicantsRes.data as Record<string, unknown>[] | null) ?? [];
 
     const totalMembers = membersData.length;
+    const requiredSignatures = Math.ceil(COMPLETION_QUOTA_PERCENTAGE * totalMembers);
 
     const memberCommitteeMap = Object.fromEntries(membersData.map(m => [m.member_id, m.member_committee])) as Record<
         string,
@@ -293,7 +294,7 @@ export async function fetchSigsheetRespondents(
         let status: SigsheetRespondent['status'] = 'Not Started';
         if (total === 0) {
             status = 'Not Started';
-        } else if (total >= CUTOFF * totalMembers) {
+        } else if (total >= requiredSignatures) {
             status = 'Completed';
         } else {
             status = 'In Progress';
