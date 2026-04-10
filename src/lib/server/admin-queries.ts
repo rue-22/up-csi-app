@@ -259,33 +259,25 @@ export async function fetchSigsheetRespondents(
         throw new Error(membersRes.error.message);
     }
 
-    const totalMembers = (membersRes.data as Record<string, unknown>[] | null)?.length ?? 0;
+    const membersData = (membersRes.data as Record<string, unknown>[] | null) ?? [];
+    const sigsheetData = (sigsheetRes.data as Record<string, unknown>[] | null) ?? [];
+    const applicantsData = (applicantsRes.data as Record<string, unknown>[] | null) ?? [];
 
-    const memberCommitteeMap: Record<string, string> = {};
-    for (const m of (membersRes.data as Record<string, unknown>[] | null) ?? []) {
-        memberCommitteeMap[m.member_id as string] = m.member_committee as string;
-    }
+    const totalMembers = membersData.length;
 
-    type ApplicantRecord = { id: string; username: string; full_name: string };
-    const byApplicant: Record<
+    const memberCommitteeMap = Object.fromEntries(membersData.map(m => [m.member_id, m.member_committee])) as Record<
         string,
-        { profile: ApplicantRecord; by_committee: Record<string, number>; total: number }
-    > = {};
+        string
+    >;
 
-    for (const row of (sigsheetRes.data as Record<string, unknown>[] | null) ?? []) {
+    const byApplicant: Record<string, { by_committee: Record<string, number>; total: number }> = {};
+    for (const row of sigsheetData) {
         const applicantId = row.applicant_id as string;
         const memberId = row.member_id as string | null;
         const committee = memberId ? (memberCommitteeMap[memberId] ?? 'Unknown') : 'Co-Applicants';
 
         if (!byApplicant[applicantId]) {
-            const applicant = ((applicantsRes.data as Record<string, unknown>[] | null) ?? []).find(
-                a => a.id === applicantId,
-            ) as ApplicantRecord | undefined;
-            byApplicant[applicantId] = {
-                profile: applicant ?? { id: applicantId, username: '', full_name: '' },
-                by_committee: {},
-                total: 0,
-            };
+            byApplicant[applicantId] = { by_committee: {}, total: 0 };
         }
 
         byApplicant[applicantId]!.by_committee[committee] =
@@ -293,31 +285,29 @@ export async function fetchSigsheetRespondents(
         byApplicant[applicantId]!.total++;
     }
 
-    const respondents: SigsheetRespondent[] = ((applicantsRes.data as Record<string, unknown>[] | null) ?? []).map(
-        p => {
-            const uid = p.id as string;
-            const applicantData = byApplicant[uid];
-            const total = applicantData?.total ?? 0;
+    const respondents: SigsheetRespondent[] = applicantsData.map(p => {
+        const uid = p.id as string;
+        const applicantData = byApplicant[uid];
+        const total = applicantData?.total ?? 0;
 
-            let status: SigsheetRespondent['status'] = 'Not Started';
-            if (total === 0) {
-                status = 'Not Started';
-            } else if (total >= CUTOFF * totalMembers) {
-                status = 'Completed';
-            } else {
-                status = 'In Progress';
-            }
+        let status: SigsheetRespondent['status'] = 'Not Started';
+        if (total === 0) {
+            status = 'Not Started';
+        } else if (total >= CUTOFF * totalMembers) {
+            status = 'Completed';
+        } else {
+            status = 'In Progress';
+        }
 
-            return {
-                user_id: uid,
-                full_name: (p.full_name as string | null) ?? '',
-                username: (p.username as string | null) ?? '',
-                total_signatures: total,
-                by_committee: applicantData?.by_committee ?? {},
-                status,
-            };
-        },
-    );
+        return {
+            user_id: uid,
+            full_name: (p.full_name as string | null) ?? '',
+            username: (p.username as string | null) ?? '',
+            total_signatures: total,
+            by_committee: applicantData?.by_committee ?? {},
+            status,
+        };
+    });
 
     return { total_members: totalMembers, respondents };
 }
