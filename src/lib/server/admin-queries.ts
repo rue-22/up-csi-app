@@ -5,9 +5,13 @@ import type {
     QuizResultDetail,
     QuizResultSummary,
     SigsheetProgressSummary,
+    SigsheetRespondent,
     SigsheetSignatureDetail,
 } from '$lib/admin/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+// arbitrary cutoff, change in future depending on m&i
+const CUTOFF = 0.5;
 
 export async function fetchApplicants(supabase: SupabaseClient): Promise<{ applicants: ApplicantProfile[] }> {
     const { data, error } = await supabase
@@ -234,4 +238,84 @@ export async function fetchSigsheetDetail(
         count: signatures.length,
         total_members: memberCountRes.count ?? null,
     };
+}
+
+export async function fetchSigsheetRespondents(
+    supabase: SupabaseClient,
+): Promise<{ total_members: number | null; respondents: SigsheetRespondent[] }> {
+    const [totalMembersRes, applicantsRes, sigsheetRes, membersRes] = await Promise.all([
+        supabase.from('members').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id, username, full_name').eq('role', 'applicant'),
+        supabase.from('sigsheet').select('applicant_id, member_id'),
+        supabase.from('members').select('member_id, member_committee'),
+    ]);
+
+    if (applicantsRes.error) {
+        throw new Error(applicantsRes.error.message);
+    }
+    if (sigsheetRes.error) {
+        throw new Error(sigsheetRes.error.message);
+    }
+
+    const totalMembers = totalMembersRes.count ?? 0;
+
+    const memberCommitteeMap: Record<string, string> = {};
+    for (const m of (membersRes.data as Record<string, unknown>[] | null) ?? []) {
+        memberCommitteeMap[m.member_id as string] = m.member_committee as string;
+    }
+
+    type ApplicantRecord = { id: string; username: string; full_name: string };
+    const byApplicant: Record<
+        string,
+        { profile: ApplicantRecord; by_committee: Record<string, number>; total: number }
+    > = {};
+
+    for (const row of (sigsheetRes.data as Record<string, unknown>[] | null) ?? []) {
+        const applicantId = row.applicant_id as string;
+        const memberId = row.member_id as string | null;
+        const committee = memberId ? (memberCommitteeMap[memberId] ?? 'Unknown') : 'Co-Applicants';
+
+        if (!byApplicant[applicantId]) {
+            const applicant = ((applicantsRes.data as Record<string, unknown>[] | null) ?? []).find(
+                a => a.id === applicantId,
+            ) as ApplicantRecord | undefined;
+            byApplicant[applicantId] = {
+                profile: applicant ?? { id: applicantId, username: '', full_name: '' },
+                by_committee: {},
+                total: 0,
+            };
+        }
+
+        byApplicant[applicantId]!.by_committee[committee] =
+            (byApplicant[applicantId]!.by_committee[committee] ?? 0) + 1;
+        byApplicant[applicantId]!.total++;
+    }
+
+    const respondents: SigsheetRespondent[] = ((applicantsRes.data as Record<string, unknown>[] | null) ?? []).map(
+        p => {
+            const uid = p.id as string;
+            const applicantData = byApplicant[uid];
+            const total = applicantData?.total ?? 0;
+
+            let status: SigsheetRespondent['status'] = 'Not Started';
+            if (total === 0) {
+                status = 'Not Started';
+            } else if (total >= CUTOFF * totalMembers) {
+                status = 'Completed';
+            } else {
+                status = 'In Progress';
+            }
+
+            return {
+                user_id: uid,
+                full_name: (p.full_name as string | null) ?? '',
+                username: (p.username as string | null) ?? '',
+                total_signatures: total,
+                by_committee: applicantData?.by_committee ?? {},
+                status,
+            };
+        },
+    );
+
+    return { total_members: totalMembers, respondents };
 }
