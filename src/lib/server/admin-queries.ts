@@ -243,8 +243,7 @@ export async function fetchSigsheetDetail(
 export async function fetchSigsheetRespondents(
     supabase: SupabaseClient,
 ): Promise<{ total_members: number | null; respondents: SigsheetRespondent[] }> {
-    const [totalMembersRes, applicantsRes, sigsheetRes, membersRes] = await Promise.all([
-        supabase.from('members').select('*', { count: 'exact', head: true }),
+    const [applicantsRes, sigsheetRes, membersRes] = await Promise.all([
         supabase.from('profiles').select('id, username, full_name').eq('role', 'applicant'),
         supabase.from('sigsheet').select('applicant_id, member_id'),
         supabase.from('members').select('member_id, member_committee'),
@@ -256,8 +255,11 @@ export async function fetchSigsheetRespondents(
     if (sigsheetRes.error) {
         throw new Error(sigsheetRes.error.message);
     }
+    if (membersRes.error) {
+        throw new Error(membersRes.error.message);
+    }
 
-    const totalMembers = totalMembersRes.count ?? 0;
+    const totalMembers = (membersRes.data as Record<string, unknown>[] | null)?.length ?? 0;
 
     const memberCommitteeMap: Record<string, string> = {};
     for (const m of (membersRes.data as Record<string, unknown>[] | null) ?? []) {
