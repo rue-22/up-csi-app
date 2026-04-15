@@ -5,6 +5,6 @@ import { getSupabaseAdmin } from '$lib/server/supabaseAdmin';
 export const load: PageServerLoad = async ({ params }) => {
     const supabase = getSupabaseAdmin();
     const detail = await fetchSigsheetDetail(supabase, params.id);
-    
+
     return detail;
 };
