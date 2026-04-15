@@ -4,11 +4,14 @@ import type {
     QuizRespondent,
     QuizResultDetail,
     QuizResultSummary,
+    SigsheetProfileSummary,
     SigsheetProgressSummary,
     SigsheetRespondent,
     SigsheetSignatureDetail,
 } from '$lib/admin/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sign } from 'crypto';
+import { string } from 'effect/FastCheck';
 
 // arbitrary cutoff, change in future depending on m&i
 const COMPLETION_QUOTA_PERCENTAGE = 0.5;
@@ -204,26 +207,27 @@ export async function fetchQuizRespondents(
     return { respondents, max_score };
 }
 
-export async function fetchSigsheetDetail(
-    supabase: SupabaseClient,
-    userId: string,
-): Promise<{
-    profile: { id: string; username: string; full_name: string } | null;
-    signatures: SigsheetSignatureDetail[];
-    count: number;
-    total_members: number | null;
-}> {
-    const [memberCountRes, profileRes, sigsheetRes] = await Promise.all([
-        supabase.from('members').select('*', { count: 'exact', head: true }),
+export async function fetchSigsheetDetail(supabase: SupabaseClient, userId: string): Promise<SigsheetProfileSummary> {
+    const [profileRes, sigsheetRes, membersRes] = await Promise.all([
         supabase.from('profiles').select('id, username, full_name').eq('id', userId).single(),
         supabase.from('sigsheet').select('sig_id, signed_at, member_id, member_name').eq('applicant_id', userId),
+        supabase.from('members').select('member_id, member_committee'),
     ]);
 
+    if (profileRes.error) {
+        throw new Error(profileRes.error.message);
+    }
     if (sigsheetRes.error) {
         throw new Error(sigsheetRes.error.message);
     }
+    if (membersRes.error) {
+        throw new Error(membersRes.error.message);
+    }
 
-    const signatures: SigsheetSignatureDetail[] = ((sigsheetRes.data as Record<string, unknown>[] | null) ?? []).map(
+    const membersData = (membersRes.data as Record<string, unknown>[] | null) ?? [];
+    const sigsheetData = (sigsheetRes.data as Record<string, unknown>[] | null) ?? [];
+
+    const signatures: SigsheetSignatureDetail[] = ((sigsheetData as Record<string, unknown>[] | null) ?? []).map(
         row => ({
             sig_id: row.sig_id as string,
             signed_at: row.signed_at as string,
@@ -232,11 +236,52 @@ export async function fetchSigsheetDetail(
         }),
     );
 
+    const totalMembers = membersData.length;
+    const totalSignatures = signatures.length;
+    const requiredSignatures = Math.ceil(COMPLETION_QUOTA_PERCENTAGE * totalMembers);
+
+    const memberCommitteeMap = Object.fromEntries(membersData.map(m => [m.member_id, m.member_committee])) as Record<
+        string,
+        string
+    >;
+
+    const sigsByCommittee: { [committee: string]: number } = {};
+    for (const sig of signatures) {
+        const committee = memberCommitteeMap[sig.member_id] as string;
+
+        if (!committee) {
+            sigsByCommittee['Co-Applicants'] = (sigsByCommittee['Co-Applicants'] ?? 0) + 1;
+        } else sigsByCommittee[committee] = (sigsByCommittee[committee] ?? 0) + 1;
+    }
+
+    const committeeTotals: { [committee: string]: number } = {};
+    for (const row of membersData) {
+        const committee = row.member_committee as string;
+        if (!committee) continue;
+
+        committeeTotals[committee] = (committeeTotals[committee] ?? 0) + 1;
+    }
+
+    const COAPPLICANT_QUOTA = 10;
+    committeeTotals['Co-Applicants'] = COAPPLICANT_QUOTA;
+
+    let status: SigsheetProfileSummary['status'] = 'Not Started';
+    if (totalSignatures === 0) {
+        status = 'Not Started';
+    } else if (totalSignatures >= requiredSignatures) {
+        status = 'Completed';
+    } else {
+        status = 'In Progress';
+    }
+
     return {
-        profile: profileRes.data as { id: string; username: string; full_name: string } | null,
+        profile: profileRes.data as { id: string; username: string; full_name: string },
         signatures,
-        count: signatures.length,
-        total_members: memberCountRes.count ?? null,
+        by_committee: sigsByCommittee,
+        committee_totals: committeeTotals,
+        total_signatures: totalSignatures,
+        total_members: totalMembers,
+        status,
     };
 }
 
