@@ -79,3 +79,14 @@ export interface SigsheetRespondent {
     by_committee: Record<string, number>;
     status: 'Not Started' | 'In Progress' | 'Completed';
 }
+
+/** Sigsheet summary for applicants on a per-committee breakdown for P03-002. */
+export interface SigsheetProfileSummary {
+    profile: { id: string; username: string; full_name: string };
+    signatures: SigsheetSignatureDetail[];
+    by_committee: Record<string, number>;
+    committee_totals: Record<string, number>;
+    total_signatures: number;
+    total_members: number;
+    status: 'Not Started' | 'In Progress' | 'Completed';
+}
