@@ -340,7 +340,7 @@ describe('fetchSigsheetDetail', () => {
 
         expect(result.profile).toEqual({ id: 'u1', username: 'alice', full_name: 'Alice' });
         expect(result.signatures).toHaveLength(2);
-        expect(result.count).toBe(2);
+        expect(result.total_signatures).toBe(2);
         expect(result.total_members).toBe(25);
     });
 
@@ -357,7 +357,7 @@ describe('fetchSigsheetDetail', () => {
         const result = await fetchSigsheetDetail(client, 'u1');
 
         expect(result.signatures).toEqual([]);
-        expect(result.count).toBe(0);
+        expect(result.total_signatures).toBe(0);
     });
 
     it('throws when sigsheet query fails', async () => {
