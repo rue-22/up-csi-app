@@ -72,7 +72,7 @@ export async function fetchAllQuizResults(supabase: SupabaseClient): Promise<{ r
 }
 
 export async function fetchQuizResultDetail(supabase: SupabaseClient, userId: string): Promise<QuizResultDetail> {
-    const [answersRes, profileRes, submissionRes] = await Promise.all([
+    const [answersRes, profileRes, submissionRes, questionsRes] = await Promise.all([
         supabase
             .from('constiquiz-answers')
             .select(
@@ -80,23 +80,47 @@ export async function fetchQuizResultDetail(supabase: SupabaseClient, userId: st
                 answer_id, question_id, answer_text, option_id, points, is_checked,
                 question:constiquiz-questions!inner (
                     title, point_value, type,
-                    section:constiquiz-sections!inner ( title )
+                    section:constiquiz-sections!inner ( section_id, title ),
+                    options:constiquiz-options ( option_id, title, is_correct )
                 )
             `,
             )
             .eq('user_id', userId),
-        supabase.from('profiles').select('id, username, full_name').eq('id', userId).single(),
+        supabase.from('profiles').select('id, username, full_name').eq('id', userId).maybeSingle(),
         supabase.from('constiquiz-submissions').select('submitted_at').eq('user_id', userId).maybeSingle(),
+        supabase.from('constiquiz-questions').select('point_value'),
     ]);
 
     if (answersRes.error) {
         throw new Error(answersRes.error.message);
     }
+    if (questionsRes.error) {
+        throw new Error(questionsRes.error.message);
+    }
+
+    const answers = (answersRes.data ?? []) as unknown as QuizAnswerDetail[];
+
+    const max_score = ((questionsRes.data as Record<string, unknown>[] | null) ?? []).reduce(
+        (sum, q) => sum + ((q.point_value as number | null) ?? 0),
+        0,
+    );
+
+    const current_score = answers.reduce((sum, a) => sum + (a.points ?? 0), 0);
+
+    let status: QuizResultDetail['status'] = 'Not Started';
+    if (submissionRes.data) {
+        status = 'Completed';
+    } else if (answers.length > 0) {
+        status = 'In Progress';
+    }
 
     return {
         profile: profileRes.data as QuizResultDetail['profile'],
         submitted_at: ((submissionRes.data as Record<string, unknown> | null)?.submitted_at as string | null) ?? null,
-        answers: (answersRes.data ?? []) as unknown as QuizAnswerDetail[],
+        answers,
+        max_score,
+        current_score,
+        status,
     };
 }
 
