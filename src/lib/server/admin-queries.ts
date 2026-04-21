@@ -10,8 +10,6 @@ import type {
     SigsheetSignatureDetail,
 } from '$lib/admin/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sign } from 'crypto';
-import { string } from 'effect/FastCheck';
 
 // arbitrary cutoff, change in future depending on m&i
 const COMPLETION_QUOTA_PERCENTAGE = 0.5;
@@ -227,14 +225,12 @@ export async function fetchSigsheetDetail(supabase: SupabaseClient, userId: stri
     const membersData = (membersRes.data as Record<string, unknown>[] | null) ?? [];
     const sigsheetData = (sigsheetRes.data as Record<string, unknown>[] | null) ?? [];
 
-    const signatures: SigsheetSignatureDetail[] = ((sigsheetData as Record<string, unknown>[] | null) ?? []).map(
-        row => ({
-            sig_id: row.sig_id as string,
-            signed_at: row.signed_at as string,
-            member_id: row.member_id as string,
-            member_name: row.member_name as string,
-        }),
-    );
+    const signatures: SigsheetSignatureDetail[] = sigsheetData.map(row => ({
+        sig_id: row.sig_id as string,
+        signed_at: row.signed_at as string,
+        member_id: row.member_id as string,
+        member_name: row.member_name as string,
+    }));
 
     const totalMembers = membersData.length;
     const totalSignatures = signatures.length;
