@@ -186,7 +186,7 @@ describe('fetchAllQuizResults', () => {
 });
 
 describe('fetchQuizResultDetail', () => {
-    it('returns profile, submitted_at, and answers for a valid userId', async () => {
+    it('returns profile, submitted_at, answers, and aggregates for a valid userId', async () => {
         const { client, whenFrom } = createMockSupabaseClient();
 
         whenFrom('constiquiz-answers').select({
@@ -198,7 +198,13 @@ describe('fetchQuizResultDetail', () => {
                     option_id: null,
                     points: 5,
                     is_checked: false,
-                    question: { title: 'Q1', point_value: 5, type: 'short_text', section: { title: 'Section A' } },
+                    question: {
+                        title: 'Q1',
+                        point_value: 5,
+                        type: 'short_text',
+                        section: { section_id: 10, title: 'Section A' },
+                        options: [],
+                    },
                 },
             ],
             error: null,
@@ -211,6 +217,10 @@ describe('fetchQuizResultDetail', () => {
             data: { submitted_at: '2025-01-01T12:00:00Z' },
             error: null,
         });
+        whenFrom('constiquiz-questions').select({
+            data: [{ point_value: 5 }, { point_value: 10 }],
+            error: null,
+        });
 
         const { fetchQuizResultDetail } = await import('../admin-queries');
         const result = await fetchQuizResultDetail(client, 'u1');
@@ -219,18 +229,61 @@ describe('fetchQuizResultDetail', () => {
         expect(result.submitted_at).toBe('2025-01-01T12:00:00Z');
         expect(result.answers).toHaveLength(1);
         expect(result.answers[0]?.question.section.title).toBe('Section A');
+        expect(result.max_score).toBe(15);
+        expect(result.current_score).toBe(5);
+        expect(result.status).toBe('Completed');
     });
 
-    it('returns null submitted_at when no submission exists', async () => {
+    it('derives In Progress status when answers exist but no submission', async () => {
         const { client, whenFrom } = createMockSupabaseClient();
-        whenFrom('constiquiz-answers').select({ data: [], error: null });
+        whenFrom('constiquiz-answers').select({
+            data: [
+                {
+                    answer_id: 'a1',
+                    question_id: 1,
+                    answer_text: null,
+                    option_id: 2,
+                    points: 0,
+                    is_checked: false,
+                    question: {
+                        title: 'Q1',
+                        point_value: 3,
+                        type: 'radio',
+                        section: { section_id: 10, title: 'Section A' },
+                        options: [
+                            { option_id: 1, title: 'A', is_correct: false },
+                            { option_id: 2, title: 'B', is_correct: true },
+                        ],
+                    },
+                },
+            ],
+            error: null,
+        });
         whenFrom('profiles').select({ data: { id: 'u1', username: 'alice', full_name: 'Alice A' }, error: null });
         whenFrom('constiquiz-submissions').select({ data: null, error: null });
+        whenFrom('constiquiz-questions').select({ data: [{ point_value: 3 }], error: null });
 
         const { fetchQuizResultDetail } = await import('../admin-queries');
         const result = await fetchQuizResultDetail(client, 'u1');
 
         expect(result.submitted_at).toBeNull();
+        expect(result.status).toBe('In Progress');
+        expect(result.current_score).toBe(0);
+    });
+
+    it('derives Not Started status when no answers and no submission', async () => {
+        const { client, whenFrom } = createMockSupabaseClient();
+        whenFrom('constiquiz-answers').select({ data: [], error: null });
+        whenFrom('profiles').select({ data: { id: 'u1', username: 'alice', full_name: 'Alice A' }, error: null });
+        whenFrom('constiquiz-submissions').select({ data: null, error: null });
+        whenFrom('constiquiz-questions').select({ data: [{ point_value: 10 }], error: null });
+
+        const { fetchQuizResultDetail } = await import('../admin-queries');
+        const result = await fetchQuizResultDetail(client, 'u1');
+
+        expect(result.status).toBe('Not Started');
+        expect(result.max_score).toBe(10);
+        expect(result.current_score).toBe(0);
     });
 
     it('throws when answers query fails', async () => {
@@ -238,6 +291,7 @@ describe('fetchQuizResultDetail', () => {
         whenFrom('constiquiz-answers').select({ data: null, error: { message: 'answers failed' } });
         whenFrom('profiles').select({ data: null, error: null });
         whenFrom('constiquiz-submissions').select({ data: null, error: null });
+        whenFrom('constiquiz-questions').select({ data: [], error: null });
 
         const { fetchQuizResultDetail } = await import('../admin-queries');
         await expect(fetchQuizResultDetail(client, 'u1')).rejects.toThrow('answers failed');

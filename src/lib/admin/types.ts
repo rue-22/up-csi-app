@@ -16,6 +16,13 @@ export interface QuizResultSummary {
     total_score: number;
 }
 
+/** A quiz question option shown to admins when reviewing choice answers. */
+export interface QuizOptionDetail {
+    option_id: number;
+    title: string | null;
+    is_correct: boolean;
+}
+
 /** Detailed quiz answer with nested question and section info. */
 export interface QuizAnswerDetail {
     answer_id: string;
@@ -27,8 +34,9 @@ export interface QuizAnswerDetail {
     question: {
         title: string;
         point_value: number;
-        type: string;
-        section: { title: string };
+        type: 'radio' | 'checkbox' | 'short_text' | 'long_text';
+        section: { section_id: number; title: string };
+        options: QuizOptionDetail[];
     };
 }
 
@@ -37,6 +45,9 @@ export interface QuizResultDetail {
     profile: { id: string; username: string; full_name: string } | null;
     submitted_at: string | null;
     answers: QuizAnswerDetail[];
+    max_score: number;
+    current_score: number;
+    status: 'Not Started' | 'In Progress' | 'Completed';
 }
 
 /** A single signature entry in the sigsheet. */
