@@ -26,8 +26,7 @@ export async function POST({ locals, request }) {
             option_id: a.option_id ?? null,
             answer_text: a.answer_text ?? null,
         })),
-        // @ts-expect-error - might be necessary to avoid conflicts or creating more rows
-        { onConflict: ['user_id', 'question_id'] },
+        { onConflict: 'user_id,question_id' },
     );
 
     if (error) {

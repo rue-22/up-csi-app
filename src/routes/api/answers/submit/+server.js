@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { logger } from '$lib/logger';
 
 export async function POST({ locals }) {
     const { supabase } = locals;
@@ -22,27 +23,44 @@ export async function POST({ locals }) {
         return json({ message: 'No answers found' });
     }
 
-    // Check if all questions have either option_id or answer_text
-    // as non-null or non-empty
-    const notAllAnswered = savedAnswers.some(a => !a.answer_text?.trim() && a.option_id === null);
+    // Fetch questions with point values
+    const { data: questions, error: questionsError } = await supabase
+        .from('constiquiz-questions')
+        .select('question_id, point_value, type');
+
+    if (questionsError) {
+        logger.error(questionsError);
+        return json({ error: questionsError.message }, { status: 500 });
+    }
+
+    if (!questions || questions.length === 0) {
+        return json({ message: 'Failed checking answers' }, { status: 500 });
+    }
+
+    // Check if every quiz question has either option_id or answer_text.
+    const savedByQuestion = new Map(savedAnswers.map(a => [a.question_id, a]));
+    const notAllAnswered = questions.some(q => {
+        const answer = savedByQuestion.get(q.question_id);
+        return !answer || (!answer.answer_text?.trim() && typeof answer.option_id !== 'number');
+    });
+
     if (notAllAnswered) {
         return json({ message: 'Quiz not yet finished' });
     }
 
-    // Fetch questions with point values
-    const questionIds = savedAnswers.map(a => a.question_id);
-    const { data: questions } = await supabase
-        .from('constiquiz-questions')
-        .select('question_id, point_value')
-        .in('question_id', questionIds);
-
     // Fetch all options for the answers
-    // const optionIds = savedAnswers.map(a => a.option_id).filter(Boolean);
-    const { data: options } = await supabase.from('constiquiz-options').select('option_id, is_correct, question_id');
+    const { data: options, error: optionsError } = await supabase
+        .from('constiquiz-options')
+        .select('option_id, is_correct, question_id');
 
     // Prepare updates
-    if (!questions || !options) {
-        return json({ message: 'Failed checking answers' });
+    if (optionsError) {
+        logger.error(optionsError);
+        return json({ error: optionsError.message }, { status: 500 });
+    }
+
+    if (!options) {
+        return json({ message: 'Failed checking answers' }, { status: 500 });
     }
 
     // Check user answer if correct
@@ -51,9 +69,8 @@ export async function POST({ locals }) {
         let points = 0;
         let is_checked = false;
 
-        // SPECIAL CASE: checkbox questions don't have option_id
-        if (a.question_id === 5400) {
-            const selected_choices = a.answer_text.split('-');
+        if (question?.type === 'checkbox' && a.answer_text) {
+            const selected_choices = a.answer_text.split('-').filter(Boolean);
 
             for (const choice of selected_choices) {
                 const option = options.find(o => o.option_id === parseInt(choice, 10));
@@ -64,7 +81,7 @@ export async function POST({ locals }) {
                 }
             }
             is_checked = true;
-        } else if (a.option_id) {
+        } else if (typeof a.option_id === 'number') {
             const option = options.find(o => o.option_id === a.option_id);
             if (option && option.is_correct) {
                 points = question?.point_value ?? 0;
@@ -85,25 +102,40 @@ export async function POST({ locals }) {
 
     // Batch update answers
     for (const u of updates) {
-        await supabase
+        const { error: updateError } = await supabase
             .from('constiquiz-answers')
             .update({ points: u.points, is_checked: u.is_checked })
             .eq('answer_id', u.id);
+
+        if (updateError) {
+            logger.error(updateError);
+            return json({ error: updateError.message }, { status: 500 });
+        }
     }
 
     // check if we made a submission before
     // NOTE: this shouldn't happen much as submit button should not appear when user has submitted
 
     const { data, error } = await supabase.from('constiquiz-submissions').select('*').eq('user_id', user.id);
-    if ((data && data.length > 0) || error) {
+    if (error) {
+        logger.error(error);
+        return json({ error: error.message }, { status: 500 });
+    }
+
+    if (data && data.length > 0) {
         return json({ message: 'User has submitted already' });
     }
 
     // assume that once we reach this, we have successfully updated the database
     // user can only submit once hence we must add them to the constiquiz_submissions
-    await supabase.from('constiquiz-submissions').insert({
+    const { error: insertError } = await supabase.from('constiquiz-submissions').insert({
         user_id: user.id,
     });
+
+    if (insertError) {
+        logger.error(insertError);
+        return json({ error: insertError.message }, { status: 500 });
+    }
 
     return json({ message: 'Answers successfully submitted!', submitted: true });
 }
