@@ -233,7 +233,7 @@ export async function fetchSigsheetDetail(supabase: SupabaseClient, userId: stri
     const [profileRes, sigsheetRes, membersRes] = await Promise.all([
         supabase.from('profiles').select('id, username, full_name').eq('id', userId).single(),
         supabase.from('sigsheet').select('sig_id, signed_at, member_id, member_name').eq('applicant_id', userId),
-        supabase.from('members').select('member_id, member_committee'),
+        supabase.from('members').select('member_id, member_committee', { count: 'exact' }),
     ]);
 
     if (profileRes.error) {
@@ -256,7 +256,7 @@ export async function fetchSigsheetDetail(supabase: SupabaseClient, userId: stri
         member_name: row.member_name as string,
     }));
 
-    const totalMembers = membersData.length;
+    const totalMembers = membersRes.count ?? membersData.length;
     const totalSignatures = signatures.length;
     const requiredSignatures = Math.ceil(COMPLETION_QUOTA_PERCENTAGE * totalMembers);
 

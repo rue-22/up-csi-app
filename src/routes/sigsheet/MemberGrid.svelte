@@ -5,9 +5,6 @@
     import MemberCard from './MemberCard.svelte';
     import Modal from './Modal.svelte';
 
-    console.log('FILLED SIGSHEET: ', $filledSigsheet);
-    // console.log('MEMBERS', $members);
-
     const categories = [
         'Executive',
         'Membership & Internals',

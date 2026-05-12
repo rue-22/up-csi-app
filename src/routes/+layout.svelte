@@ -11,13 +11,16 @@
     import { onMount } from 'svelte';
 
     const { data, children } = $props();
-    const { session, supabase } = $derived(data);
+    const session = $derived(data.session);
+    const supabase = $derived(data.supabase);
 
-    // Sync $lib variables to data props (must be synchronous so children can read in onMount)
-    if (data?.uuid) uuid.set(data.uuid);
-    if (data?.user?.user_metadata.full_name) username.set(data.user.user_metadata.full_name);
-    if (data?.filledSigsheet) filledSigsheet.set(data.filledSigsheet);
-    if (data?.gdrive_folder_id) gdrive_folder_id.set(data.gdrive_folder_id);
+    // Keep legacy shared stores aligned with SvelteKit data before child onMount callbacks run.
+    $effect.pre(() => {
+        if (data?.uuid) uuid.set(data.uuid);
+        if (data?.user?.user_metadata.full_name) username.set(data.user.user_metadata.full_name);
+        if (data?.filledSigsheet) filledSigsheet.set(data.filledSigsheet);
+        if (data?.gdrive_folder_id) gdrive_folder_id.set(data.gdrive_folder_id);
+    });
 
     let isNavBarOpen = $state(false);
     onMount(() => {
@@ -41,12 +44,12 @@
 
     // Get members list
     onMount(async () => {
-        console.log('Fetching members list.');
+        logger.debug('Fetching members list.');
         const { data: members_data, error: members_error } = await supabase
             .from('members')
             .select('member_id, member_name, member_committee, role, photo');
         if (members_error) {
-            console.error('Error fetching members: ', members_error);
+            logger.error('Error fetching members: ', members_error);
         } else if (members_data) {
             members.set(members_data);
         }
