@@ -1,10 +1,10 @@
-import { GOOGLE_PRIVATE_KEY, GOOGLE_SERVICE_EMAIL } from '$env/static/private';
 import { gdrive_root_folder } from '$lib/shared';
 import { google } from 'googleapis';
 import { logger } from '$lib/logger';
+import { requirePrivateEnv } from '$lib/server/env';
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request, locals }) {
+export async function POST({ locals }) {
     logger.debug('Received POST request at /api/get_gdrive_folder');
 
     try {
@@ -16,7 +16,7 @@ export async function POST({ request, locals }) {
             });
         }
         const uuid = user.id;
-        const { username } = await request.json();
+        const username = user.email?.split('@')[0] ?? '';
         const { supabase } = locals;
         // Ensure uuid is not empty
         if (uuid === '' || uuid === null) {
@@ -39,8 +39,8 @@ export async function POST({ request, locals }) {
         // Authenticate with Google Drive API
         const auth = new google.auth.GoogleAuth({
             credentials: {
-                client_email: GOOGLE_SERVICE_EMAIL,
-                private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+                client_email: requirePrivateEnv('GOOGLE_SERVICE_EMAIL'),
+                private_key: requirePrivateEnv('GOOGLE_PRIVATE_KEY').replace(/\\n/g, '\n'),
             },
             scopes: ['https://www.googleapis.com/auth/drive'],
         });
@@ -108,6 +108,18 @@ export async function POST({ request, locals }) {
                         ? driveError.errors
                         : 'No additional error details',
                 stack: driveError instanceof Error ? driveError.stack : 'No stack trace available',
+            });
+            return new Response(JSON.stringify({ error: 'Error creating folder in Google Drive' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+
+        if (!folder_id) {
+            logger.error('Google Drive did not return a folder id');
+            return new Response(JSON.stringify({ error: 'Google Drive did not return a folder id' }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
             });
         }
 
