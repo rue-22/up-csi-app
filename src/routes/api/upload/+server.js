@@ -1,7 +1,7 @@
-import { GOOGLE_PRIVATE_KEY, GOOGLE_SERVICE_EMAIL } from '$env/static/private';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { logger } from '$lib/logger';
+import { requirePrivateEnv } from '$lib/server/env';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
@@ -28,7 +28,16 @@ export async function POST({ request, locals }) {
 
         logger.debug('Google Drive Folder ID:', gdrive_folder_id);
 
-        if (!question || !answer || !imageFile || !(imageFile instanceof File)) {
+        if (
+            typeof username !== 'string' ||
+            typeof gdrive_folder_id !== 'string' ||
+            typeof member_id !== 'string' ||
+            typeof member_name !== 'string' ||
+            typeof question !== 'string' ||
+            typeof answer !== 'string' ||
+            !imageFile ||
+            !(imageFile instanceof File)
+        ) {
             logger.error('Validation error: Missing or invalid required fields');
             return new Response(JSON.stringify({ error: 'Missing or invalid required fields' }), {
                 status: 400,
@@ -43,8 +52,8 @@ export async function POST({ request, locals }) {
         // Authenticate with Google Drive API
         const auth = new google.auth.GoogleAuth({
             credentials: {
-                client_email: GOOGLE_SERVICE_EMAIL,
-                private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+                client_email: requirePrivateEnv('GOOGLE_SERVICE_EMAIL'),
+                private_key: requirePrivateEnv('GOOGLE_PRIVATE_KEY').replace(/\\n/g, '\n'),
             },
             scopes: ['https://www.googleapis.com/auth/drive.file'],
         });
@@ -53,8 +62,8 @@ export async function POST({ request, locals }) {
 
         // Upload image to Google Drive
         const fileMetadata = {
-            name: `${String(username)}-${String(member_name).replace(/\s+/g, '')}`,
-            parents: [String(gdrive_folder_id)],
+            name: `${username}-${member_name.replace(/\s+/g, '')}`,
+            parents: [gdrive_folder_id],
         };
 
         const media = {
