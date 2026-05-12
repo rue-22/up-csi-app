@@ -1,18 +1,21 @@
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { SUPABASE_SERVICE_KEY } from '$env/static/private';
-import type { SupabaseClient } from '@supabase/supabase-js';
-// eslint-disable-next-line no-duplicate-imports
 import { createClient } from '@supabase/supabase-js';
+import { requirePrivateEnv } from '$lib/server/env';
 
 /**
  * Service-role Supabase client. Bypasses RLS.
  * ONLY use in server-side code for admin operations.
  */
-let _client: SupabaseClient | null = null;
+let _client: ReturnType<typeof createClient> | null = null;
 
-export function getSupabaseAdmin(): SupabaseClient {
+export function getSupabaseAdmin(): ReturnType<typeof createClient> {
     if (!_client) {
-        _client = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        _client = createClient(PUBLIC_SUPABASE_URL, requirePrivateEnv('SUPABASE_SERVICE_KEY'), {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+            },
+        });
     }
     return _client;
 }
