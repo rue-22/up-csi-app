@@ -7,7 +7,7 @@
 
     const openSections = $state<Record<number, boolean>>({});
 
-    let currentScore = $state(data.current_score);
+    let currentScore = $derived(data.current_score);
 
     type Section = {
         section_id: number;
@@ -16,13 +16,16 @@
     };
 
     const sections = $derived.by<Section[]>(() => {
-        const bySection = new Map<number, Section>();
+        const bySection: Record<number, Section> = {};
+        const orderedSections: Section[] = [];
         for (const a of data.answers) {
             const s = a.question.section;
-            if (!bySection.has(s.section_id)) {
-                bySection.set(s.section_id, { section_id: s.section_id, title: s.title, questions: [] });
+            let section = bySection[s.section_id];
+            if (!section) {
+                section = { section_id: s.section_id, title: s.title, questions: [] };
+                bySection[s.section_id] = section;
+                orderedSections.push(section);
             }
-            const section = bySection.get(s.section_id)!;
             let q = section.questions.find(q => q.question_id === a.question_id);
             if (!q) {
                 q = { question_id: a.question_id, answers: [] };
@@ -30,7 +33,7 @@
             }
             q.answers.push(a);
         }
-        return [...bySection.values()]
+        return orderedSections
             .sort((a, b) => a.section_id - b.section_id)
             .map(s => ({ ...s, questions: s.questions.sort((x, y) => x.question_id - y.question_id) }));
     });
@@ -84,10 +87,6 @@
                 return;
             }
             const body = (await res.json()) as { new_total: number };
-            // eslint-disable-next-line require-atomic-updates
-            answer.points = points;
-            // eslint-disable-next-line require-atomic-updates
-            answer.is_checked = true;
             currentScore = body.new_total;
             saveStates[answer.answer_id] = { state: 'saved', message: 'Saved' };
             setTimeout(() => {
@@ -238,7 +237,9 @@
             {/each}
         </div>
 
-        <aside class="bg-csi-neutral-900 h-fit rounded-2xl p-6 lg:sticky lg:top-8">
+        <aside
+            class="bg-csi-neutral-900 h-fit rounded-2xl p-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+        >
             <h3 class="text-csi-white mb-4 text-lg font-bold">Quiz Navigation</h3>
             {#each sections as section, sIdx (section.section_id)}
                 {@const isOpen = openSections[section.section_id] ?? sIdx === 0}
